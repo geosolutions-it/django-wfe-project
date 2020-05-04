@@ -1,3 +1,4 @@
+import typing
 import importlib
 
 from django.db import models
@@ -66,8 +67,9 @@ class Job(models.Model):
     """
     workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
     current_step = models.ForeignKey(Step, on_delete=models.CASCADE, null=True, default=None)
+    current_step_number = models.IntegerField(default=0)
     storage = JSONField(help_text="Serialized output of executed Workflow's Steps and data shared between Steps", default=default_storage)
-    state = models.CharField(max_length=20, null=True, default=None)
+    state = models.CharField(max_length=20, null=True, default=JobState.PENDING)
 
     def save(self, force_insert=False, force_update=False, using=None,
              update_fields=None):
@@ -77,10 +79,6 @@ class Job(models.Model):
                 self.current_step = Step.objects.get(name='__start__')
             except models.ObjectDoesNotExist:
                 print("Step '__start__' not found. Please make sure it is present in the database before ordering a Job.")
-
-        # set default Job's state
-        if self.state is None:
-            self.state = JobState.PENDING
 
         super().save()
 
@@ -99,13 +97,32 @@ class Job(models.Model):
             self.state = JobState.FAILED
             self.save()
 
-    def provide_user_input(self):
+    def provide_external_input(self, external_data: typing.Dict):
         """
-        A method gathering user's input for the current Step and resuming execution of the workflow
+        A method gathering user's input for the current Step
 
         :return:
+        :raises: pydantic.ValidationError
         """
-        pass
+        CurrentStep = self._import_class(self.current_step.path)
+
+        if not CurrentStep.UserInputSchema.__fields__:
+            raise RuntimeError(f"Current Workflow's Step {CurrentStep} does not accept external input.")
+
+        if self.state != JobState.INPUT_REQUIRED:
+            raise RuntimeError(f"Wrong Workflow's state: {self.state}.")
+
+        # pydantic validate the data structure
+        external_data = CurrentStep.UserInputSchema(**external_data)
+
+        # update serialized job's state with provided external data
+        try:
+            self.storage['data'][self.current_step_number]['external_data'] = external_data.dict()
+        except IndexError:
+            self.storage['data'].append({'step': self.current_step.path, 'external_data': external_data.dict()})
+
+        self.state = JobState.INPUT_RECEIVED
+        self.save()
 
     def _run_next(self):
         """
@@ -119,7 +136,7 @@ class Job(models.Model):
         current_step = CurrentStep(job=self)
 
         # break execution if input is required by the current Step
-        if current_step.requires_input and self.state is not JobState.INPUT_RECEIVED:
+        if current_step.requires_input and self.state != JobState.INPUT_RECEIVED:
             self.state = JobState.INPUT_REQUIRED
             self.save()
             return
@@ -127,14 +144,17 @@ class Job(models.Model):
         self.state = JobState.ONGOING
         self.save()
 
-        previous_step_result = self.storage['data'][-1]['result'] if self.storage['data'] else None
+        previous_step_result = self.storage['data'][self.current_step_number-1]['result'] if self.storage['data'] else None
 
-        result = current_step.execute(_input=previous_step_result)
+        result = current_step._perform_execute(_input=previous_step_result)
 
-        self.storage['data'].append({'step': self.current_step.path, 'result': result})
+        try:
+            self.storage['data'][self.current_step_number]['result'] = result
+        except IndexError:
+            self.storage['data'].append({'step': self.current_step.path, 'result': result})
         self.save()
 
-        transition = current_step.transition(_input=previous_step_result)
+        transition = current_step._perform_transition(_input=previous_step_result)
 
         if Workflow.DIGRAPH.get(CurrentStep) is None or len(Workflow.DIGRAPH.get(CurrentStep)) == 0:
             # workflow's finished
@@ -149,6 +169,7 @@ class Job(models.Model):
                     + Workflow.DIGRAPH.get(CurrentStep)[transition].__name__
             )
         )
+        self.current_step_number += 1
         self.save()
 
         self._run_next()

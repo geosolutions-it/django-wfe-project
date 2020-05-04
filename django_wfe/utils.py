@@ -32,6 +32,22 @@ def order_workflow_execution(workflow_id: typing.Union[int, str]) -> int:
     return job.id
 
 
+def provide_external_input(job_id: typing.Union[int, str], external_data: typing.Dict) -> None:
+    """
+    A function handling Django WFE external input's and resuming the execution of the Workflow.
+
+    :param job_id: django_wfe.models.Job record's ID
+    :param external_data: a dictionary containing external data required by the current django_wfe.models.Step
+    :return: None
+    """
+    from .models import Job
+    from .tasks import process_job
+
+    job = Job.objects.get(id=job_id)
+    job.provide_external_input(external_data)
+    process_job.send(job.id)
+
+
 def update_wdk_models():
     """
     A function iterating over user defined WDK classes (Steps, Decisions, and Workflows),

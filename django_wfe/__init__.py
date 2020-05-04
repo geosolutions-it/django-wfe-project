@@ -1,5 +1,5 @@
 from django.apps import AppConfig
-from .utils import order_workflow_execution
+from .utils import order_workflow_execution, provide_external_input
 
 
 class DjangoWfeConfig(AppConfig):
