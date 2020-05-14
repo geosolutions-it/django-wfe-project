@@ -53,4 +53,5 @@ class MyOtherModule4(workflows.Workflow):
         steps.__start__: [StepA],
         StepA: [Decision],
         Decision: [StepB, StepC],
+        StepB: [StepD],
     }

@@ -6,6 +6,7 @@ class StepType(type):
     """
     WDK Step and Decision type class
     """
+
     pass
 
 
@@ -31,7 +32,9 @@ class BaseStep(metaclass=StepType):
     def _perform_execute(self, _input=None, *args, **kwargs):
         # pass external_input to the user defined execute() method
         try:
-            external_input = self.job.storage['data'][self.job.current_step_number]['external_data']
+            external_input = self.job.storage["data"][self.job.current_step_number][
+                "external_data"
+            ]
         except (KeyError, IndexError):
             external_input = None
 
@@ -40,7 +43,9 @@ class BaseStep(metaclass=StepType):
     def _perform_transition(self, _input=None, *args, **kwargs):
         # pass external_input to the user defined transition() method
         try:
-            external_input = self.job.storage['data'][self.job.current_step_number]['external_data']
+            external_input = self.job.storage["data"][self.job.current_step_number][
+                "external_data"
+            ]
         except (KeyError, IndexError):
             external_input = None
 

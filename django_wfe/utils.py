@@ -1,107 +1,47 @@
-"""
-The module implementing functions used among others in the AppConfig, before Django imports work properly.
-As long as this module is imported in django_wfe.__init__, all functions should define imports within themselves.
-"""
-import typing
+import atexit
 import importlib
+from collections.abc import Iterable
+
+from django.db.models import ObjectDoesNotExist
+from django.db.utils import ProgrammingError
+from apscheduler.schedulers.background import BlockingScheduler
+
+from .settings import WFE_WORKFLOWS, WFE_WATCHDOG_INTERVAL
+from .models import Step, Workflow, Watchdog
+from .workflows import WorkflowType
 
 
-class JobState:
-    PENDING = 'PENDING'
-    ONGOING = 'ONGOING'
-    INPUT_REQUIRED = 'INPUT_REQUIRED'
-    INPUT_RECEIVED = 'INPUT_RECEIVED'
-    FAILED = 'FAILED'
-    FINISHED = 'FINISHED'
-
-
-def order_workflow_execution(workflow_id: typing.Union[int, str]) -> int:
+def set_watchdog_on_wdk_models():
     """
-    A function handling Django WFE Workflow execution order.
-
-    :param workflow_id: django_wfe.models.Workflow record's ID
-    :return: Ordered workflow's execution ID (django_wfe.models.Job instance's ID)
-    """
-    from .models import Workflow, Job
-    from .tasks import process_job
-
-    job = Job(workflow=Workflow.objects.get(id=int(workflow_id)))
-    job.save()
-    process_job.send(job_id=job.id)
-
-    return job.id
-
-
-def provide_external_input(job_id: typing.Union[int, str], external_data: typing.Dict) -> None:
-    """
-    A function handling Django WFE external input's and resuming the execution of the Workflow.
-
-    :param job_id: django_wfe.models.Job record's ID
-    :param external_data: a dictionary containing external data required by the current django_wfe.models.Step
-    :return: None
-    """
-    from .models import Job
-    from .tasks import process_job
-
-    job = Job.objects.get(id=job_id)
-    job.provide_external_input(external_data)
-    process_job.send(job.id)
-
-
-def update_wdk_models():
-    """
-    A function iterating over user defined WDK classes (Steps, Decisions, and Workflows),
-    updating the database with their representation for the proper Job serialization.
+    Method updating database with user defined Steps, Decisions and Workflows.
 
     :return: None
     """
-    from django.conf import settings
 
-    from .steps import StepType
-    from .workflows import WorkflowType
-    from .models import Step, Workflow
+    try:
+        watchdog = Watchdog.load()
+    except ProgrammingError:
+        # raised in case of not existing models in db (e.g. on the python manage.py migrate)
+        print("Watchdog singleton cannot be fetched from db.")
+        return
 
-    # update Steps with the starting step
-    if not Step.objects.filter(path=f'{__package__}.steps.__start__'):
-        Step(name='__start__', path=f'{__package__}.steps.__start__').save()
+    if not watchdog.running and WFE_WATCHDOG_INTERVAL > 0:
+        # order deregister_watchdog() executions as exit function.
+        atexit.register(deregister_watchdog)
 
-    # update user created steps
-    update_wdk_model(settings.WFE_STEPS, Step, StepType)
-    # update user created decisions, if not present in steps module
-    if settings.WFE_STEPS != settings.WFE_DECISIONS:
-        update_wdk_model(settings.WFE_DECISIONS, Step, StepType)
-    # update user created workflows
-    update_wdk_model(settings.WFE_WORKFLOWS, Workflow, WorkflowType)
-
-
-def update_wdk_model(module_path: str, model: type, model_type: type) -> None:
-    """
-    A function updating the database with a certain user defined WDK class
-
-    :param module_path: python path (dot notation) to the WKD classes definition module
-    :param model: database model of WDK class representation
-    :param model_type: WDK class's type (metaclass)
-    :return: None
-    """
-    from django.db.models import ObjectDoesNotExist
-
-    # import the module
-    model_definitions_module = importlib.import_module(module_path)
-    # refresh the module to attach all the newest changes
-    importlib.reload(model_definitions_module)
-
-    models = [name for name, cls in model_definitions_module.__dict__.items() if isinstance(cls, model_type)]
-
-    for name in models:
-        model_path = f'{module_path}.{name}'
-
-        try:
-            model.objects.get(path=model_path)
-        except ObjectDoesNotExist:
-            try:
-                model(name=name, path=model_path).save()
-            except Exception as e:
-                print(f"SKIPPING Automatic mapping {module_path}: failed due to the exception:\n{type(e).__name__}: {e}")
+        # mark watchdog as running
+        watchdog.running = True
+        watchdog.save()
+        # schedule periodic watchdog's execution
+        scheduler = BlockingScheduler(daemon=True)
+        scheduler.add_job(update_wdk_models, "interval", seconds=WFE_WATCHDOG_INTERVAL)
+        scheduler.start()
+    elif WFE_WATCHDOG_INTERVAL <= 0:
+        print(
+            f"Watchdog turned of by WFE_WATCHDOG_INTERVAL equal: {WFE_WATCHDOG_INTERVAL}"
+        )
+    elif watchdog.running:
+        print(f"Watchdog process already running.")
 
 
 def deregister_watchdog():
@@ -111,8 +51,66 @@ def deregister_watchdog():
 
     :return: None
     """
-    from .models import Watchdog
-
     w = Watchdog.load()
     w.running = False
     w.save()
+
+
+def update_wdk_models():
+    """
+    A function iterating over user defined WDK classes (Steps, Decisions, and Workflows),
+    updating the database with their representation for the proper Job serialization.
+
+    :return: None
+    """
+
+    if WFE_WORKFLOWS is None:
+        print(f"WARNING: Module's path for django-wfe Workflows is None.")
+        return
+
+    if isinstance(WFE_WORKFLOWS, Iterable):
+        wfe_workflow_files = WFE_WORKFLOWS
+    else:
+        wfe_workflow_files = [WFE_WORKFLOWS]
+
+    for wfe_workflow_file in wfe_workflow_files:
+
+        # import the module
+        model_definitions_module = importlib.import_module(wfe_workflow_file)
+        # refresh the module to attach all the newest changes
+        importlib.reload(model_definitions_module)
+
+        models = [
+            (name, cls)
+            for name, cls in model_definitions_module.__dict__.items()
+            if isinstance(cls, WorkflowType)
+        ]
+
+        for name, cls in models:
+            model_path = f"{wfe_workflow_file}.{name}"
+
+            steps_cls = cls._get_steps_classes()
+
+            # update Workflow model entries
+            try:
+                Workflow.objects.get(path=model_path)
+            except ObjectDoesNotExist:
+                try:
+                    Workflow(name=name, path=model_path).save()
+                except Exception as e:
+                    print(
+                        f"SKIPPING Automatic mapping {model_path}: failed due to the exception:\n{type(e).__name__}: {e}"
+                    )
+
+            # update Step model instances defined by the Workflow
+            for step in steps_cls:
+                step_path = f"{step.__module__}.{step.__name__}"
+                try:
+                    Step.objects.get(path=step_path)
+                except ObjectDoesNotExist:
+                    try:
+                        Step(name=step.__name__, path=step_path).save()
+                    except Exception as e:
+                        print(
+                            f"SKIPPING Automatic mapping {step_path}: failed due to the exception:\n{type(e).__name__}: {e}"
+                        )

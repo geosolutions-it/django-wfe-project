@@ -17,10 +17,11 @@ from django.contrib import admin
 from django.urls import path, include
 
 from django_wfe_integration.urls import urlpatterns as integration_patterns
-from django_wfe import urls
+# from django_wfe import urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(integration_patterns)),
-    path('', include(urls.urlpatterns)),
+    path('api/', include("django_wfe.urls", namespace="django_wfe")),
+    path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
 ]

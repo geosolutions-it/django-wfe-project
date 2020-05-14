@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 
+
+# WFE_WORKFLOWS = 'django_wfe_integration.workflows'
+WFE_WORKFLOWS = ['django_wfe.tests.wdk_models', 'django_wfe_integration.workflows']
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

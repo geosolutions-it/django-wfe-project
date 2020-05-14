@@ -32,3 +32,9 @@ class StepC(steps.Step):
 
     def execute(self, _input=None, *args, **kwargs):
         sleep(3)
+
+
+class StepD(steps.Step):
+
+    def execute(self, _input=None, *args, **kwargs):
+        sleep(3)
