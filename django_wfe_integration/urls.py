@@ -1,8 +1,10 @@
 from django.urls import path
-from django_wfe_integration.views import MyView, MyOtherView
+from django.shortcuts import HttpResponseRedirect
+from django_wfe_integration.views import upload_file, upload_status
 
 
 urlpatterns = [
-    path('job/', MyView.as_view()),
-    path('job/<int:job>', MyOtherView.as_view())
+    path('', lambda request: HttpResponseRedirect(f'/upload/')),
+    path('upload/', upload_file, name='upload_file'),
+    path('upload/status/<int:upload_id>', upload_status, name='upload_status')
 ]

@@ -1,57 +1,18 @@
 from django_wfe import workflows
-from .steps import *
+from .example_workflow_steps import *
+from django_wfe import steps
 
 
-class MyWorkflow(workflows.Workflow):
-
-    DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-    }
-
-
-class MyOther(workflows.Workflow):
+class ExampleWorkflow(workflows.Workflow):
+    """
+    Sample Workflow defining *.txt and *.json files handling.
+    Files should be located under filesystem path, provided to ValidateFileStep
+    """
 
     DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-    }
-
-
-class YetAnother(workflows.Workflow):
-
-    DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-    }
-
-
-class YetAAnother(workflows.Workflow):
-
-    DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-    }
-
-
-class CompletelyDifferent(workflows.Workflow):
-
-    DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-    }
-
-
-class MyOtherModule4(workflows.Workflow):
-
-    DIGRAPH = {
-        steps.__start__: [StepA],
-        StepA: [Decision],
-        Decision: [StepB, StepC],
-        StepB: [StepD],
+        steps.__start__: [ValidateFileStep],
+        ValidateFileStep: [FileTypeDecision],
+        FileTypeDecision: [JsonFileHandleStep, OtherFileHandleStep],
+        OtherFileHandleStep: [FileHandlingCheckStep],
+        JsonFileHandleStep: [FileHandlingCheckStep]
     }

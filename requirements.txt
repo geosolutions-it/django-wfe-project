@@ -1,7 +1,17 @@
+APScheduler==3.6.3
 asgiref==3.2.7
 Django==3.0.5
+django-crispy-forms==1.9.1
+django-dramatiq==0.9.1
+djangorestframework==3.11.0
+dramatiq==1.8.1
+pika==1.1.0
 pkg-resources==0.0.0
+prometheus-client==0.7.1
 psycopg2==2.8.5
+pydantic==1.5.1
 pytz==2019.3
+six==1.14.0
 sqlparse==0.3.1
-
+tzlocal==2.1
+-e git+https://github.com/geosolutions-it/django-wfe.git#egg=django_wfe
