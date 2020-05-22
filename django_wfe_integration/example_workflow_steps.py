@@ -10,6 +10,7 @@ from django_wfe import steps
 # Note: when working with django-wfe all outputs and inputs should be JSON serializable,
 # since values are stored in the DB between the execution calls
 
+
 class ValidateFileStep(steps.Step):
     """
     Step executing validation against the file located under provided path
@@ -19,21 +20,21 @@ class ValidateFileStep(steps.Step):
         file: str
 
     def execute(self, _input=None, external_input=None, *args, **kwargs):
-        file_path = external_input['file']
+        file_path = external_input["file"]
 
         # All stdout and stderr messages will be captured and logged to job log file.
         print(f"Received file for validation: {file_path}")
 
         if not os.path.isfile(file_path):
-            print(f'{file_path}: is not a file.')
+            print(f"{file_path}: is not a file.")
             # raising an error will stop job execution and mark the job as FAILED
-            raise Exception(f'{file_path} is not a file.')
+            raise Exception(f"{file_path} is not a file.")
 
         try:
-            with open(file_path, 'r'):
+            with open(file_path, "r"):
                 pass
         except Exception as e:
-            print(f'{file_path}: open for reading failed with an exception: {e}.')
+            print(f"{file_path}: open for reading failed with an exception: {e}.")
             raise e
 
         # return file_path for FileTypeDecision Step
@@ -51,7 +52,7 @@ class FileTypeDecision(steps.Decision):
         # _input of the Step is previous step's returned output
         file_path = _input
 
-        if Path(file_path).suffix == '.json':
+        if Path(file_path).suffix == ".json":
             # Next a step with index 0 will be executed from the Workflow.DIGRAPH[FileTypeDecision]
             return 0
         else:
@@ -84,7 +85,7 @@ class JsonFileHandleStep(steps.Step):
         #    ]
         # }
 
-        file_path = self.job.storage["data"][-1].get('result')
+        file_path = self.job.storage["data"][-1].get("result")
         # some fancy logic, e.g. upload of the file to an external service
         sleep(3)
 
@@ -97,7 +98,7 @@ class OtherFileHandleStep(steps.Step):
     """
 
     def execute(self, _input=None, *args, **kwargs):
-        file_path = self.job.storage["data"][-1].get('result')
+        file_path = self.job.storage["data"][-1].get("result")
         # some other fancy logic
         sleep(3)
 

@@ -14,5 +14,5 @@ class ExampleWorkflow(workflows.Workflow):
         ValidateFileStep: [FileTypeDecision],
         FileTypeDecision: [JsonFileHandleStep, OtherFileHandleStep],
         OtherFileHandleStep: [FileHandlingCheckStep],
-        JsonFileHandleStep: [FileHandlingCheckStep]
+        JsonFileHandleStep: [FileHandlingCheckStep],
     }
