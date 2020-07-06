@@ -130,7 +130,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap4"
 # https://github.com/Bogdanp/django_dramatiq
 DRAMATIQ_BROKER = {
     "BROKER": "dramatiq.brokers.rabbitmq.RabbitmqBroker",
-    "OPTIONS": {"url": "amqp://localhost:5672",},
+    "OPTIONS": {"url": "amqp://guest:guest@127.0.0.1:5672", },
     "MIDDLEWARE": [
         "dramatiq.middleware.Prometheus",
         "dramatiq.middleware.AgeLimit",
@@ -148,3 +148,12 @@ DRAMATIQ_TASKS_DATABASE = "default"
 # Django-WFE configuration
 # https://github.com/geosolutions-it/django-wfe
 WFE_WORKFLOWS = "django_wfe_integration.workflows"
+
+
+OGC_SERVER = {
+    "url": "http://localhost:8080/geoserver/rest",
+    "user": "admin",
+    "password": "geoserver",
+    "MAX_RETRIES": 5,
+    "BACKOFF_FACTOR": 0.3,
+}

@@ -1,6 +1,6 @@
 APScheduler==3.6.3
 asgiref==3.2.7
-Django==3.0.5
+Django==2.2.13
 django-crispy-forms==1.9.1
 django-dramatiq==0.9.1
 djangorestframework==3.11.0
@@ -15,3 +15,5 @@ six==1.14.0
 sqlparse==0.3.1
 tzlocal==2.1
 -e git+https://github.com/geosolutions-it/django-wfe.git#egg=django_wfe
+
+geoserver-restconfig==2.0.4.4

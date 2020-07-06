@@ -22,7 +22,8 @@ def upload_file(request):
             # start synchronous django-wfe workflow execution
             # Job will stop at the first user defined step (ValidateFileStep) waiting for external input
             workflow = Workflow.objects.get(
-                path="django_wfe_integration.workflows.ExampleWorkflow"
+                # path="django_wfe_integration.workflows.ExampleWorkflow"
+                path="django_wfe_integration.workflows.GeoServerSimpleUpload"
             )
             job_id = execute_workflow_sync(workflow.id)
 
@@ -31,14 +32,21 @@ def upload_file(request):
             if (
                 job.state != JobState.INPUT_REQUIRED
                 or job.current_step
-                != "django_wfe_integration.example_workflow_steps.ValidateFileStep"
+                != "django_wfe_integration.upload_simple_workflow.ValidateFileStep"
             ):
                 # job's state is not the expected one
                 return HttpResponseRedirect(f"/upload/status/{job_id}")
 
             # proceed with background workflow execution
             # (external_data dict should correspond to step's UserInputSchema structure)
-            provide_input(job_id, {"file": file_path})
+            provide_input(
+                job_id,
+                {
+                    "file": file_path,
+                    "name": request.POST["name"],
+                    "workspace": request.POST["workspace"]
+                }
+            )
 
             return HttpResponseRedirect(f"/upload/status/{job_id}")
     else:
