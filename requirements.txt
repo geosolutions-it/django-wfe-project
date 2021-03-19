@@ -3,7 +3,7 @@ asgiref==3.2.7
 Django==3.0.5
 django-crispy-forms==1.9.1
 django-dramatiq==0.9.1
-djangorestframework==3.11.0
+djangorestframework==3.11.2
 dramatiq==1.8.1
 pika==1.1.0
 pkg-resources==0.0.0
